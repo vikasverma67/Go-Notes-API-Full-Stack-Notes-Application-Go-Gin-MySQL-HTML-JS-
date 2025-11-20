@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Go Notes App</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; max-width: 600px; }
+    h1 { margin-bottom: 10px; }
+    input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
+    button { padding: 8px 16px; cursor: pointer; }
+    .note { border: 1px solid #ccc; padding: 10px; margin-bottom: 8px; border-radius: 4px; }
+    .note-header { display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+  <h1>Go Notes App</h1>
+
+  <h3>Add / Update Note</h3>
+  <input id="noteId" placeholder="ID (for update only, optional)">
+  <input id="title" placeholder="Title">
+  <textarea id="content" rows="3" placeholder="Content"></textarea>
+  <button onclick="createOrUpdateNote()">Save</button>
+  <button onclick="clearForm()">Clear</button>
+
+  <h3>Notes</h3>
+  <div id="notes"></div>
+
+  <script>
+    const apiBase = "http://localhost:8080";
+
+    async function fetchNotes() {
+      const res = await fetch(apiBase + "/notes");
+      const data = await res.json();
+      const container = document.getElementById("notes");
+      container.innerHTML = "";
+
+      data.forEach(note => {
+        const div = document.createElement("div");
+        div.className = "note";
+        div.innerHTML = `
+          <div class="note-header">
+            <strong>${note.id}: ${note.title}</strong>
+            <div>
+              <button onclick="editNote(${note.id})">Edit</button>
+              <button onclick="deleteNote(${note.id})">Delete</button>
+            </div>
+          </div>
+          <p>${note.content}</p>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function createOrUpdateNote() {
+      const id = document.getElementById("noteId").value.trim();
+      const title = document.getElementById("title").value.trim();
+      const content = document.getElementById("content").value.trim();
+
+      if (!title || !content) {
+        alert("Title and content are required");
+        return;
+      }
+
+      const payload = { title, content };
+
+      let url = apiBase + "/notes";
+      let method = "POST";
+
+      if (id) {
+        url = apiBase + "/notes/" + id;
+        method = "PUT";
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Error: " + JSON.stringify(err));
+        return;
+      }
+
+      clearForm();
+      fetchNotes();
+    }
+
+    async function deleteNote(id) {
+      if (!confirm("Delete note " + id + "?")) return;
+
+      await fetch(apiBase + "/notes/" + id, { method: "DELETE" });
+      fetchNotes();
+    }
+
+    async function editNote(id) {
+      const res = await fetch(apiBase + "/notes/" + id);
+      if (!res.ok) {
+        alert("Note not found");
+        return;
+      }
+      const note = await res.json();
+      document.getElementById("noteId").value = note.id;
+      document.getElementById("title").value = note.title;
+      document.getElementById("content").value = note.content;
+    }
+
+    function clearForm() {
+      document.getElementById("noteId").value = "";
+      document.getElementById("title").value = "";
+      document.getElementById("content").value = "";
+    }
+
+    fetchNotes();
+  </script>
+</body>
+</html>
